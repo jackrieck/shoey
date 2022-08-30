@@ -11,6 +11,9 @@ url = "https://anchor.projectserum.com"
 cluster = "localnet"
 wallet = "/Users/jack/.config/solana/id.json"
 
+[workspace]
+types = "sdk/"
+
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
 

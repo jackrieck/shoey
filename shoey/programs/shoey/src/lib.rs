@@ -5,7 +5,7 @@ use mpl_token_metadata::instruction::{
     create_master_edition_v3, create_metadata_accounts_v2,
     mint_new_edition_from_master_edition_via_token,
 };
-use mpl_token_metadata::state::{DataV2, UseMethod, Uses, EDITION_MARKER_BIT_SIZE};
+use mpl_token_metadata::state::{DataV2, EDITION_MARKER_BIT_SIZE};
 
 declare_id!("EQTKRBAiJp6sRN9BbDcdb1ppwAZnQeBJ2h8uH9XuUwKg");
 
@@ -67,11 +67,8 @@ pub mod shoey {
 
         // mint master edition to manager controlled token account
         let shoey_mint_to_accounts = token::MintTo {
-            mint: ctx.accounts.shoey_mint.to_account_info(),
-            to: ctx
-                .accounts
-                .shoey_master_edition_vault
-                .to_account_info(),
+            mint: ctx.accounts.shoey_master_edition_mint.to_account_info(),
+            to: ctx.accounts.shoey_master_edition_vault.to_account_info(),
             authority: ctx.accounts.manager.to_account_info(),
         };
 
@@ -99,8 +96,8 @@ pub mod shoey {
         };
 
         let create_metadata_accounts = [
-            ctx.accounts.shoey_metadata.to_account_info(),
-            ctx.accounts.shoey_mint.to_account_info(),
+            ctx.accounts.shoey_master_edition_metadata.to_account_info(),
+            ctx.accounts.shoey_master_edition_mint.to_account_info(),
             ctx.accounts.manager.to_account_info(),
             ctx.accounts.admin.to_account_info(),
             ctx.accounts.manager.to_account_info(),
@@ -110,8 +107,8 @@ pub mod shoey {
 
         let metadata_ix = create_metadata_accounts_v2(
             ctx.accounts.metadata_program.key(),
-            ctx.accounts.shoey_metadata.key(),
-            ctx.accounts.shoey_mint.key(),
+            ctx.accounts.shoey_master_edition_metadata.key(),
+            ctx.accounts.shoey_master_edition_mint.key(),
             ctx.accounts.manager.key(),
             ctx.accounts.admin.key(),
             ctx.accounts.manager.key(),
@@ -137,8 +134,8 @@ pub mod shoey {
 
         let create_shoey_master_edition_accounts = [
             ctx.accounts.shoey_master_edition.to_account_info(),
-            ctx.accounts.shoey_metadata.to_account_info(),
-            ctx.accounts.shoey_mint.to_account_info(),
+            ctx.accounts.shoey_master_edition_metadata.to_account_info(),
+            ctx.accounts.shoey_master_edition_mint.to_account_info(),
             ctx.accounts.manager.to_account_info(),
             ctx.accounts.admin.to_account_info(),
             ctx.accounts.manager.to_account_info(),
@@ -151,10 +148,10 @@ pub mod shoey {
         let shoey_master_edition_ix = create_master_edition_v3(
             ctx.accounts.metadata_program.key(),
             ctx.accounts.shoey_master_edition.key(),
-            ctx.accounts.shoey_mint.key(),
+            ctx.accounts.shoey_master_edition_mint.key(),
             ctx.accounts.manager.key(),
             ctx.accounts.manager.key(),
-            ctx.accounts.shoey_metadata.key(),
+            ctx.accounts.shoey_master_edition_metadata.key(),
             ctx.accounts.admin.key(),
             None,
         );
@@ -168,6 +165,16 @@ pub mod shoey {
             ]],
         )?;
 
+        let manager = &mut ctx.accounts.manager;
+        manager.vote_mint = ctx.accounts.vote_mint.key();
+        manager.vote_metadata = ctx.accounts.vote_metadata.key();
+        manager.shoey_master_edition_mint = ctx.accounts.shoey_master_edition_mint.key();
+        manager.shoey_master_edition_metadata = ctx.accounts.shoey_master_edition_metadata.key();
+        manager.shoey_master_edition = ctx.accounts.shoey_master_edition.key();
+        manager.shoey_master_edition_vault = ctx.accounts.shoey_master_edition_vault.key();
+        manager.payment_mint = ctx.accounts.payment_mint.key();
+        manager.payment_vault = ctx.accounts.payment_vault.key();
+        manager.admin = ctx.accounts.admin.key();
         Ok(())
     }
 
@@ -206,13 +213,9 @@ pub mod shoey {
             ctx.accounts.manager.to_account_info(),
             ctx.accounts.user.to_account_info(),
             ctx.accounts.manager.to_account_info(),
-            ctx.accounts
-                .shoey_master_edition_vault
-                .to_account_info(),
+            ctx.accounts.shoey_master_edition_vault.to_account_info(),
             ctx.accounts.manager.to_account_info(),
-            ctx.accounts
-                .shoey_master_edition_metadata
-                .to_account_info(),
+            ctx.accounts.shoey_master_edition_metadata.to_account_info(),
             ctx.accounts.token_program.to_account_info(),
             ctx.accounts.system_program.to_account_info(),
             ctx.accounts.rent.to_account_info(),
@@ -264,18 +267,18 @@ pub struct Initialize<'info> {
     pub vote_metadata: UncheckedAccount<'info>,
 
     #[account(init, payer = admin, mint::decimals = 0, mint::authority = manager)]
-    pub shoey_mint: Box<Account<'info, token::Mint>>,
+    pub shoey_master_edition_mint: Box<Account<'info, token::Mint>>,
 
     /// CHECK: initialized by metaplex metadata program
-    #[account(mut, seeds = [b"metadata", mpl_token_metadata::ID.as_ref(), shoey_mint.key().as_ref()], bump, seeds::program = mpl_token_metadata::ID)]
-    pub shoey_metadata: UncheckedAccount<'info>,
+    #[account(mut, seeds = [b"metadata", mpl_token_metadata::ID.as_ref(), shoey_master_edition_mint.key().as_ref()], bump, seeds::program = mpl_token_metadata::ID)]
+    pub shoey_master_edition_metadata: UncheckedAccount<'info>,
 
     /// CHECK: initialized by metaplex metadata program
-    #[account(mut, seeds = [b"metadata", mpl_token_metadata::ID.as_ref(), shoey_mint.key().as_ref(), b"edition"], bump, seeds::program = mpl_token_metadata::ID)]
+    #[account(mut, seeds = [b"metadata", mpl_token_metadata::ID.as_ref(), shoey_master_edition_mint.key().as_ref(), b"edition"], bump, seeds::program = mpl_token_metadata::ID)]
     pub shoey_master_edition: UncheckedAccount<'info>,
 
-    #[account(init, payer = admin, associated_token::mint = shoey_mint, associated_token::authority = manager)]
-    pub shoey_master_edition_vault: Account<'info, token::TokenAccount>,
+    #[account(init, payer = admin, associated_token::mint = shoey_master_edition_mint, associated_token::authority = manager)]
+    pub shoey_master_edition_vault: Box<Account<'info, token::TokenAccount>>,
 
     #[account(init, payer = admin, space = Manager::SPACE, seeds = [vote_mint.key().as_ref()], bump)]
     pub manager: Account<'info, Manager>,
@@ -317,7 +320,7 @@ pub struct Submit<'info> {
     pub shoey_master_edition: UncheckedAccount<'info>,
 
     #[account(associated_token::mint = shoey_master_edition_mint, associated_token::authority = manager)]
-    pub shoey_master_edition_vault: Account<'info, token::TokenAccount>,
+    pub shoey_master_edition_vault: Box<Account<'info, token::TokenAccount>>,
 
     #[account(init, payer = user, mint::decimals = 0, mint::authority = manager)]
     pub shoey_edition_mint: Box<Account<'info, token::Mint>>,
@@ -374,7 +377,7 @@ pub struct Vote<'info> {
     #[account(mut, seeds = [vote_mint.key().as_ref()], bump)]
     pub manager: Account<'info, Manager>,
 
-    pub payment_mint: Account<'info, token::Mint>,
+    pub payment_mint: Box<Account<'info, token::Mint>>,
 
     #[account(mut, token::mint = payment_mint, token::authority = manager)]
     pub payment_vault: Account<'info, token::TokenAccount>,
@@ -399,15 +402,19 @@ pub struct Vote<'info> {
 
 #[account]
 pub struct Manager {
-    pub admin: Pubkey,
+    pub vote_mint: Pubkey,
+    pub vote_metadata: Pubkey,
+    pub shoey_master_edition_mint: Pubkey,
+    pub shoey_master_edition_metadata: Pubkey,
+    pub shoey_master_edition: Pubkey,
+    pub shoey_master_edition_vault: Pubkey,
     pub payment_mint: Pubkey,
     pub payment_vault: Pubkey,
-    pub vote_mint: Pubkey,
-    pub shoey_mint: Pubkey,
+    pub admin: Pubkey,
 }
 
 impl Manager {
-    pub const SPACE: usize = 8 + 32 + 32 + 32 + 32 + 32;
+    pub const SPACE: usize = 8 + 32 + 32 + 32 + 32 + 32 + 32 + 32 + 32 + 32;
 }
 
 #[account]
