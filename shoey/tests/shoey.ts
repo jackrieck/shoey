@@ -1,16 +1,11 @@
 import * as anchor from "@project-serum/anchor";
 import * as splToken from "@solana/spl-token";
 import * as shoeySdk from "../sdk/index";
-import { Program } from "@project-serum/anchor";
-import { Shoey } from "../target/types/shoey";
-import * as mplMd from "@metaplex-foundation/mpl-token-metadata";
 
 describe("shoey", () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.AnchorProvider.env());
-
-  const program = anchor.workspace.Shoey as Program<Shoey>;
-  const provider = program.provider as anchor.AnchorProvider;
+  const provider = anchor.getProvider() as anchor.AnchorProvider;
 
   it("smoke", async () => {
     // setup payment mint, this will be $DUST

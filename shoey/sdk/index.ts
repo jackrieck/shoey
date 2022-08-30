@@ -107,7 +107,10 @@ export class Client {
     return manager;
   }
 
-  public async submit(managerAddress: anchor.web3.PublicKey, shoeyName: string) {
+  public async submit(
+    managerAddress: anchor.web3.PublicKey,
+    shoeyName: string
+  ) {
     const manager = await this.fetchManager(managerAddress);
 
     const shoeyEditionMint = anchor.web3.Keypair.generate();
@@ -205,7 +208,10 @@ export class Client {
   public async vote(managerAddress: anchor.web3.PublicKey, shoeyName: string) {
     const manager = await this.fetchManager(managerAddress);
 
-    const userVoteAta = await splToken.getAssociatedTokenAddress(manager.voteMint, this.provider.wallet.publicKey);
+    const userVoteAta = await splToken.getAssociatedTokenAddress(
+      manager.voteMint,
+      this.provider.wallet.publicKey
+    );
 
     const [shoey, _shoeyBump] = await anchor.web3.PublicKey.findProgramAddress(
       [managerAddress.toBuffer(), Buffer.from(shoeyName)],
@@ -213,22 +219,22 @@ export class Client {
     );
 
     const voteTxSig = await this.program.methods
-    .vote(shoeyName)
-    .accounts({
-      voteMint: manager.voteMint,
-      manager: managerAddress,
-      paymentMint: manager.paymentMint,
-      paymentVault: manager.paymentVault,
-      shoey: shoey,
-      voter: this.provider.wallet.publicKey,
-      voterVoteAta: userVoteAta,
-      systemProgram: anchor.web3.SystemProgram.programId,
-      rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-      tokenProgram: splToken.TOKEN_PROGRAM_ID,
-      associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
-    })
-    .rpc({ skipPreflight: true });
-  console.log("voteTxSig: %s", voteTxSig);
+      .vote(shoeyName)
+      .accounts({
+        voteMint: manager.voteMint,
+        manager: managerAddress,
+        paymentMint: manager.paymentMint,
+        paymentVault: manager.paymentVault,
+        shoey: shoey,
+        voter: this.provider.wallet.publicKey,
+        voterVoteAta: userVoteAta,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        tokenProgram: splToken.TOKEN_PROGRAM_ID,
+        associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+      })
+      .rpc({ skipPreflight: true });
+    console.log("voteTxSig: %s", voteTxSig);
   }
 
   public async fetchManager(
