@@ -87,11 +87,6 @@ export type Shoey = {
       "name": "submit",
       "accounts": [
         {
-          "name": "voteMint",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "shoeyMasterEditionMint",
           "isMut": false,
           "isSigner": false
@@ -133,6 +128,11 @@ export type Shoey = {
         },
         {
           "name": "manager",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "voteMint",
           "isMut": true,
           "isSigner": false
         },
@@ -543,11 +543,6 @@ export const IDL: Shoey = {
       "name": "submit",
       "accounts": [
         {
-          "name": "voteMint",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "shoeyMasterEditionMint",
           "isMut": false,
           "isSigner": false
@@ -589,6 +584,11 @@ export const IDL: Shoey = {
         },
         {
           "name": "manager",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "voteMint",
           "isMut": true,
           "isSigner": false
         },
