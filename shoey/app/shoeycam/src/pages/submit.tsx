@@ -7,10 +7,7 @@ const Submit: NextPage = (props) => {
     <div>
       <Head>
         <title>Submit</title>
-        <meta
-          name="description"
-          content="Submit Shoey Video"
-        />
+        <meta name="description" content="Submit Shoey Video" />
       </Head>
       <SubmitView />
     </div>

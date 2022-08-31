@@ -7,10 +7,7 @@ const Claim: NextPage = (props) => {
     <div>
       <Head>
         <title>Claim</title>
-        <meta
-          name="description"
-          content="Claim $DUST"
-        />
+        <meta name="description" content="Claim $DUST" />
       </Head>
       <ClaimView />
     </div>
