@@ -46,6 +46,8 @@ describe("shoey", () => {
     await shoeyClient.submit(managerAddress, "jack");
 
     await shoeyClient.vote(managerAddress, "jack");
+
+    await shoeyClient.claim(managerAddress, "jack");
   });
 });
 

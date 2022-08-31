@@ -263,6 +263,48 @@ export class Client {
     console.log("voteTxSig: %s", voteTxSig);
   }
 
+  public async claim(managerAddress: anchor.web3.PublicKey, shoeyName: string) {
+    const manager = await this.fetchManager(managerAddress);
+
+    const [shoey, _shoeyBump] = await anchor.web3.PublicKey.findProgramAddress(
+      [managerAddress.toBuffer(), Buffer.from(shoeyName)],
+      this.program.programId
+    );
+
+    const shoeyData = await this.fetchShoey(shoey);
+
+    const shoeyOwnerPaymentATa = await splToken.getAssociatedTokenAddress(
+      manager.paymentMint,
+      this.provider.wallet.publicKey
+    );
+
+    const shoeyOwnerEditionMintAta = await splToken.getAssociatedTokenAddress(
+      shoeyData.editionMint,
+      this.provider.wallet.publicKey
+    );
+
+    const claimTxSig = await this.program.methods
+      .claim(shoeyName)
+      .accounts({
+        voteMint: manager.voteMint,
+        paymentMint: manager.paymentMint,
+        paymentVault: manager.paymentVault,
+        manager: managerAddress,
+        shoeyOwner: this.provider.wallet.publicKey,
+        shoeyOwnerPaymentAta: shoeyOwnerPaymentATa,
+        shoeyOwnerEditionMintAta: shoeyOwnerEditionMintAta,
+        shoey: shoey,
+        shoeyPaymentVault: shoeyData.paymentVault,
+        shoeyEditionMint: shoeyData.editionMint,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        tokenProgram: splToken.TOKEN_PROGRAM_ID,
+        associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+      })
+      .rpc({ skipPreflight: true });
+    console.log("claimTxSig: %s", claimTxSig);
+  }
+
   public async fetchManager(
     managerAddress: anchor.web3.PublicKey
   ): Promise<Manager> {
@@ -283,6 +325,18 @@ export class Client {
       admin: managerData.admin,
     };
   }
+
+  public async fetchShoey(shoeyAddress: anchor.web3.PublicKey): Promise<Shoey> {
+    const shoeyData = await this.program.account.shoey.fetch(shoeyAddress);
+
+    return {
+      name: shoeyData.name,
+      manager: shoeyData.manager,
+      editionMint: shoeyData.editionMint,
+      paymentVault: shoeyData.paymentVault,
+      totalVotes: shoeyData.totalVotes,
+    };
+  }
 }
 
 export interface Manager {
@@ -295,4 +349,12 @@ export interface Manager {
   paymentMint: anchor.web3.PublicKey;
   paymentVault: anchor.web3.PublicKey;
   admin: anchor.web3.PublicKey;
+}
+
+export interface Shoey {
+  name: string;
+  manager: anchor.web3.PublicKey;
+  editionMint: anchor.web3.PublicKey;
+  paymentVault: anchor.web3.PublicKey;
+  totalVotes: anchor.BN;
 }

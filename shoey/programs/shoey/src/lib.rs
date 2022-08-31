@@ -264,8 +264,8 @@ pub mod shoey {
         let shoey = &mut ctx.accounts.shoey;
         shoey.name = shoey_name;
         shoey.manager = ctx.accounts.manager.key();
-        shoey.shoey_edition_mint = ctx.accounts.shoey_edition_mint.key();
-        shoey.shoey_payment_vault = ctx.accounts.shoey_payment_vault.key();
+        shoey.edition_mint = ctx.accounts.shoey_edition_mint.key();
+        shoey.payment_vault = ctx.accounts.shoey_payment_vault.key();
         shoey.total_votes = 0;
 
         // mint free votes for submitting
@@ -348,22 +348,26 @@ pub mod shoey {
         Ok(())
     }
 
-    pub fn claim(ctx: Context<Claim>, _shoey_name: String) -> Result<()> {
+    pub fn claim(ctx: Context<Claim>, shoey_name: String) -> Result<()> {
+        // transfer everything from the shoey vault to the owner
         let transfer_payment_accounts = token::Transfer {
-            from: ctx.accounts.payment_vault.to_account_info(),
+            from: ctx.accounts.shoey_payment_vault.to_account_info(),
             to: ctx.accounts.shoey_owner_payment_ata.to_account_info(),
-            authority: ctx.accounts.manager.to_account_info(),
+            authority: ctx.accounts.shoey.to_account_info(),
         };
 
         token::transfer(
-            CpiContext::new(
+            CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
                 transfer_payment_accounts,
+                &[&[
+                    ctx.accounts.manager.key().as_ref(),
+                    shoey_name.as_bytes(),
+                    &[*ctx.bumps.get("shoey").unwrap()],
+                ]],
             ),
-            1,
-        )?;
-
-        Ok(())
+            ctx.accounts.shoey_payment_vault.amount,
+        )
     }
 }
 
@@ -542,16 +546,16 @@ pub struct Claim<'info> {
     #[account(init_if_needed, payer = shoey_owner, associated_token::mint = payment_mint, associated_token::authority = shoey_owner)]
     pub shoey_owner_payment_ata: Box<Account<'info, token::TokenAccount>>,
 
-    #[account(mut, has_one = shoey_edition_mint, has_one = manager, seeds = [manager.key().as_ref(), shoey_name.as_bytes()], bump)]
+    #[account(constraint = shoey_owner_edition_mint_ata.amount == 1, associated_token::mint = shoey_edition_mint, associated_token::authority = shoey_owner)]
+    pub shoey_owner_edition_mint_ata: Account<'info, token::TokenAccount>,
+
+    #[account(mut, has_one = manager, seeds = [manager.key().as_ref(), shoey_name.as_bytes()], bump)]
     pub shoey: Account<'info, Shoey>,
 
-    #[account(associated_token::mint = payment_mint, associated_token::authority = shoey)]
+    #[account(mut, associated_token::mint = payment_mint, associated_token::authority = shoey)]
     pub shoey_payment_vault: Box<Account<'info, token::TokenAccount>>,
 
     pub shoey_edition_mint: Box<Account<'info, token::Mint>>,
-
-    #[account(constraint = shoey_edition_mint_ata.amount == 1, associated_token::mint = shoey_edition_mint, associated_token::authority = shoey_owner)]
-    pub shoey_edition_mint_ata: Account<'info, token::TokenAccount>,
 
     pub system_program: Program<'info, System>,
 
@@ -583,8 +587,8 @@ impl Manager {
 pub struct Shoey {
     pub name: String,
     pub manager: Pubkey,
-    pub shoey_edition_mint: Pubkey,
-    pub shoey_payment_vault: Pubkey,
+    pub edition_mint: Pubkey,
+    pub payment_vault: Pubkey,
     pub total_votes: u64,
 }
 
