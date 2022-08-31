@@ -152,9 +152,19 @@ export type Shoey = {
           isSigner: false;
         },
         {
+          name: "shoeyPaymentVault";
+          isMut: true;
+          isSigner: false;
+        },
+        {
           name: "user";
           isMut: true;
           isSigner: true;
+        },
+        {
+          name: "userPaymentAta";
+          isMut: true;
+          isSigner: false;
         },
         {
           name: "userVoteAta";
@@ -232,13 +242,104 @@ export type Shoey = {
           isSigner: false;
         },
         {
+          name: "shoeyPaymentVault";
+          isMut: true;
+          isSigner: false;
+        },
+        {
           name: "voter";
           isMut: true;
           isSigner: true;
         },
         {
+          name: "voterPaymentAta";
+          isMut: true;
+          isSigner: false;
+        },
+        {
           name: "voterVoteAta";
           isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "systemProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "rent";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "associatedTokenProgram";
+          isMut: false;
+          isSigner: false;
+        }
+      ];
+      args: [
+        {
+          name: "shoeyName";
+          type: "string";
+        }
+      ];
+    },
+    {
+      name: "claim";
+      accounts: [
+        {
+          name: "voteMint";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "paymentMint";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "paymentVault";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "manager";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "shoeyOwner";
+          isMut: true;
+          isSigner: true;
+        },
+        {
+          name: "shoeyOwnerPaymentAta";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "shoey";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "shoeyPaymentVault";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "shoeyEditionMint";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "shoeyEditionMintAta";
+          isMut: false;
           isSigner: false;
         },
         {
@@ -325,31 +426,30 @@ export type Shoey = {
             type: "string";
           },
           {
-            name: "videoName";
-            type: "string";
-          },
-          {
-            name: "votes";
-            type: "u64";
-          },
-          {
-            name: "paymentVault";
-            type: "publicKey";
-          },
-          {
-            name: "shoeyMint";
-            type: "publicKey";
-          },
-          {
             name: "manager";
             type: "publicKey";
           },
           {
-            name: "storageAccount";
+            name: "shoeyEditionMint";
             type: "publicKey";
+          },
+          {
+            name: "shoeyPaymentVault";
+            type: "publicKey";
+          },
+          {
+            name: "totalVotes";
+            type: "u64";
           }
         ];
       };
+    }
+  ];
+  errors: [
+    {
+      code: 6000;
+      name: "ShoeyNameTooLong";
+      msg: "Shoey Name Too Long";
     }
   ];
 };
@@ -508,9 +608,19 @@ export const IDL: Shoey = {
           isSigner: false,
         },
         {
+          name: "shoeyPaymentVault",
+          isMut: true,
+          isSigner: false,
+        },
+        {
           name: "user",
           isMut: true,
           isSigner: true,
+        },
+        {
+          name: "userPaymentAta",
+          isMut: true,
+          isSigner: false,
         },
         {
           name: "userVoteAta",
@@ -588,13 +698,104 @@ export const IDL: Shoey = {
           isSigner: false,
         },
         {
+          name: "shoeyPaymentVault",
+          isMut: true,
+          isSigner: false,
+        },
+        {
           name: "voter",
           isMut: true,
           isSigner: true,
         },
         {
+          name: "voterPaymentAta",
+          isMut: true,
+          isSigner: false,
+        },
+        {
           name: "voterVoteAta",
           isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "systemProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "rent",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "associatedTokenProgram",
+          isMut: false,
+          isSigner: false,
+        },
+      ],
+      args: [
+        {
+          name: "shoeyName",
+          type: "string",
+        },
+      ],
+    },
+    {
+      name: "claim",
+      accounts: [
+        {
+          name: "voteMint",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "paymentMint",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "paymentVault",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "manager",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "shoeyOwner",
+          isMut: true,
+          isSigner: true,
+        },
+        {
+          name: "shoeyOwnerPaymentAta",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "shoey",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "shoeyPaymentVault",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "shoeyEditionMint",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "shoeyEditionMintAta",
+          isMut: false,
           isSigner: false,
         },
         {
@@ -681,31 +882,30 @@ export const IDL: Shoey = {
             type: "string",
           },
           {
-            name: "videoName",
-            type: "string",
-          },
-          {
-            name: "votes",
-            type: "u64",
-          },
-          {
-            name: "paymentVault",
-            type: "publicKey",
-          },
-          {
-            name: "shoeyMint",
-            type: "publicKey",
-          },
-          {
             name: "manager",
             type: "publicKey",
           },
           {
-            name: "storageAccount",
+            name: "shoeyEditionMint",
             type: "publicKey",
+          },
+          {
+            name: "shoeyPaymentVault",
+            type: "publicKey",
+          },
+          {
+            name: "totalVotes",
+            type: "u64",
           },
         ],
       },
+    },
+  ],
+  errors: [
+    {
+      code: 6000,
+      name: "ShoeyNameTooLong",
+      msg: "Shoey Name Too Long",
     },
   ],
 };
