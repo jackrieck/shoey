@@ -178,7 +178,12 @@ pub mod shoey {
         Ok(())
     }
 
-    pub fn submit(ctx: Context<Submit>, shoey_name: String, edition_number: u64, video_url: String) -> Result<()> {
+    pub fn submit(
+        ctx: Context<Submit>,
+        shoey_name: String,
+        edition_number: u64,
+        video_url: String,
+    ) -> Result<()> {
         // transfer upload payment to vault
         let transfer_upload_payment_accounts = token::Transfer {
             from: ctx.accounts.user_payment_ata.to_account_info(),
