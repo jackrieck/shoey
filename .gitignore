@@ -1,3 +1,6 @@
 node_modules/
 .anchor/
 target/
+.next/
+build/
+*.log*
