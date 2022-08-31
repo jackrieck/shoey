@@ -210,6 +210,10 @@ export type Shoey = {
         {
           "name": "editionNumber",
           "type": "u64"
+        },
+        {
+          "name": "videoUrl",
+          "type": "string"
         }
       ]
     },
@@ -426,6 +430,10 @@ export type Shoey = {
             "type": "string"
           },
           {
+            "name": "videoUrl",
+            "type": "string"
+          },
+          {
             "name": "manager",
             "type": "publicKey"
           },
@@ -449,7 +457,12 @@ export type Shoey = {
     {
       "code": 6000,
       "name": "ShoeyNameTooLong",
-      "msg": "Shoey Name Too Long"
+      "msg": "Shoey Name must be under 100 characters"
+    },
+    {
+      "code": 6001,
+      "name": "ShoeyVideoUrlTooLong",
+      "msg": "Shoey Video Url must be under 500 characters"
     }
   ]
 };
@@ -666,6 +679,10 @@ export const IDL: Shoey = {
         {
           "name": "editionNumber",
           "type": "u64"
+        },
+        {
+          "name": "videoUrl",
+          "type": "string"
         }
       ]
     },
@@ -882,6 +899,10 @@ export const IDL: Shoey = {
             "type": "string"
           },
           {
+            "name": "videoUrl",
+            "type": "string"
+          },
+          {
             "name": "manager",
             "type": "publicKey"
           },
@@ -905,7 +926,12 @@ export const IDL: Shoey = {
     {
       "code": 6000,
       "name": "ShoeyNameTooLong",
-      "msg": "Shoey Name Too Long"
+      "msg": "Shoey Name must be under 100 characters"
+    },
+    {
+      "code": 6001,
+      "name": "ShoeyVideoUrlTooLong",
+      "msg": "Shoey Video Url must be under 500 characters"
     }
   ]
 };

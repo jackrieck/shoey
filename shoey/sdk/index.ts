@@ -1,6 +1,8 @@
 import * as anchor from "@project-serum/anchor";
 import * as mplMd from "@metaplex-foundation/mpl-token-metadata";
 import * as splToken from "@solana/spl-token";
+import fetch from "cross-fetch";
+import { ShdwDrive } from "@shadow-drive/sdk";
 import { Shoey, IDL as ShoeyIDL } from "./shoey";
 
 export const SHOEY_PROGRAM_ID = "EQTKRBAiJp6sRN9BbDcdb1ppwAZnQeBJ2h8uH9XuUwKg";
@@ -109,7 +111,8 @@ export class Client {
 
   public async submit(
     managerAddress: anchor.web3.PublicKey,
-    shoeyName: string
+    shoeyName: string,
+    videoUrl: string
   ) {
     const manager = await this.fetchManager(managerAddress);
 
@@ -186,7 +189,7 @@ export class Client {
     });
 
     const submitTxSig = await this.program.methods
-      .submit(shoeyName, editionNumber)
+      .submit(shoeyName, editionNumber, videoUrl)
       .accounts({
         shoeyMasterEditionMint: manager.shoeyMasterEditionMint,
         shoeyMasterEditionMetadata: manager.shoeyMasterEditionMetadata,
@@ -303,6 +306,105 @@ export class Client {
       })
       .rpc({ skipPreflight: true });
     console.log("claimTxSig: %s", claimTxSig);
+  }
+
+  public async uploadVideo(videoFile: File): Promise<string> {
+    const shdwMintAddress = new anchor.web3.PublicKey(
+      "SHDWyBxihqiCj6YekG2GUr7wqKLeLAMK1gHZck9pL6y"
+    );
+
+    const shdwMint = await splToken.getMint(
+      this.provider.connection,
+      shdwMintAddress,
+      "confirmed"
+    );
+
+    const shdwAta = await splToken.getAssociatedTokenAddress(
+      shdwMintAddress,
+      this.provider.wallet.publicKey
+    );
+
+    const requiredShdw = 0.03 * 10 ** shdwMint.decimals;
+
+    const shdwBalance = (
+      await this.provider.connection.getTokenAccountBalance(
+        shdwAta,
+        "confirmed"
+      )
+    ).value.uiAmount;
+
+    if (shdwBalance < requiredShdw) {
+      // swap for some shdw
+
+      // get swap quote from jupiter
+      const { routes } = await (
+        await fetch(
+          `https://quote-api.jup.ag/v1/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=${shdwMintAddress.toString()}&amount=${requiredShdw}&slippage=0.5&swapMode=ExactOut`
+        )
+      ).json();
+
+      // create transactions
+      // get serialized transactions for the swap
+      const transactions = await (
+        await fetch("https://quote-api.jup.ag/v1/swap", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            // route from /quote api
+            route: routes[0],
+            // user public key to be used for the swap
+            userPublicKey: this.provider.wallet.publicKey,
+            // auto wrap and unwrap SOL. default is true
+            wrapUnwrapSOL: true,
+          }),
+        })
+      ).json();
+
+      const { setupTransaction, swapTransaction, cleanupTransaction } =
+        transactions;
+
+      // send transactions
+      for (let serializedTransaction of [
+        setupTransaction,
+        swapTransaction,
+        cleanupTransaction,
+      ].filter(Boolean)) {
+        // get transaction object from serialized transaction
+        const transaction = anchor.web3.Transaction.from(
+          Buffer.from(serializedTransaction, "base64")
+        );
+        await this.provider.sendAndConfirm(transaction, undefined, {
+          commitment: "confirmed",
+        });
+      }
+    }
+
+    const client = new ShdwDrive(
+      this.provider.connection,
+      this.provider.wallet
+    );
+
+    // videos must be <= 100MB
+    const createStorageAccountResponse = await client.createStorageAccount(
+      "shoey-video",
+      "100MB",
+      "v2"
+    );
+    console.log(
+      "createStorageAccountTxSig: %s",
+      createStorageAccountResponse.transaction_signature
+    );
+
+    const uploadVideoResponse = await client.uploadFile(
+      new anchor.web3.PublicKey(createStorageAccountResponse.shdw_bucket),
+      videoFile,
+      "v2"
+    );
+    console.log("uploadVideoResponse: %s", uploadVideoResponse);
+
+    return `https://shdw-drive.genesysgo.net/${createStorageAccountResponse.shdw_bucket}/${videoFile.name}`;
   }
 
   public async fetchManager(

@@ -43,7 +43,11 @@ describe("shoey", () => {
 
     const managerAddress = await shoeyClient.initialize(paymentMint);
 
-    await shoeyClient.submit(managerAddress, "jack");
+    await shoeyClient.submit(
+      managerAddress,
+      "jack",
+      "https://foo.com/video.mp4"
+    );
 
     await shoeyClient.vote(managerAddress, "jack");
 
