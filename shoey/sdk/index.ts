@@ -164,6 +164,7 @@ export class Client {
       this.provider.wallet.publicKey
     );
 
+    // get supply from the master edition account and increment 1 to get the next available edition number
     let editionSupply: anchor.BN = new anchor.BN(
       (
         await mplMd.MasterEditionV2.fromAccountAddress(
@@ -173,7 +174,6 @@ export class Client {
       ).supply
     );
     const editionNumber = editionSupply.add(new anchor.BN(1));
-    console.log("editionNumber: %d", editionNumber.toNumber());
 
     const [shoeyEditionMarker, _shoeyEditionMarkerBump] =
       await anchor.web3.PublicKey.findProgramAddress(
