@@ -179,10 +179,20 @@ pub mod shoey {
     }
 
     pub fn submit(ctx: Context<Submit>, shoey_name: String, edition_number: u64) -> Result<()> {
-        // create storage account
-        // create shoey account
-        // upload video
-        // mint shoey nft
+        // transfer upload payment to vault
+        let transfer_upload_payment_accounts = token::Transfer {
+            from: ctx.accounts.user_payment_ata.to_account_info(),
+            to: ctx.accounts.payment_vault.to_account_info(),
+            authority: ctx.accounts.user.to_account_info(),
+        };
+
+        token::transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                transfer_upload_payment_accounts,
+            ),
+            ui_amount_to_amount(1.0, ctx.accounts.payment_mint.decimals),
+        )?;
 
         // mint edition to user token account
         let shoey_mint_to_accounts = token::MintTo {
@@ -246,14 +256,118 @@ pub mod shoey {
             ]],
         )?;
 
-        // mint free votes
+        if shoey_name.len() > 100 {
+            return Err(error!(ErrorCode::ShoeyNameTooLong));
+        }
+
+        // set shoey account params
+        let shoey = &mut ctx.accounts.shoey;
+        shoey.name = shoey_name;
+        shoey.manager = ctx.accounts.manager.key();
+        shoey.edition_mint = ctx.accounts.shoey_edition_mint.key();
+        shoey.payment_vault = ctx.accounts.shoey_payment_vault.key();
+        shoey.total_votes = 0;
+
+        // mint free votes for submitting
+        let mint_votes_accounts = token::MintTo {
+            mint: ctx.accounts.vote_mint.to_account_info(),
+            to: ctx.accounts.user_vote_ata.to_account_info(),
+            authority: ctx.accounts.manager.to_account_info(),
+        };
+
+        token::mint_to(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                mint_votes_accounts,
+                &[&[
+                    ctx.accounts.vote_mint.key().as_ref(),
+                    &[*ctx.bumps.get("manager").unwrap()],
+                ]],
+            ),
+            10,
+        )
+    }
+
+    pub fn vote(ctx: Context<Vote>, _shoey_name: String) -> Result<()> {
+        // if votes are available, use a vote instead of payment mint
+        if ctx.accounts.voter_vote_ata.amount > 0 {
+            // burn a vote token
+            let burn_votes_accounts = token::Burn {
+                mint: ctx.accounts.vote_mint.to_account_info(),
+                from: ctx.accounts.voter_vote_ata.to_account_info(),
+                authority: ctx.accounts.voter.to_account_info(),
+            };
+
+            token::burn(
+                CpiContext::new(
+                    ctx.accounts.token_program.to_account_info(),
+                    burn_votes_accounts,
+                ),
+                1,
+            )?;
+
+            // transfer payment to the shoey vault
+            let transfer_accounts = token::Transfer {
+                from: ctx.accounts.payment_vault.to_account_info(),
+                to: ctx.accounts.shoey_payment_vault.to_account_info(),
+                authority: ctx.accounts.manager.to_account_info(),
+            };
+
+            token::transfer(
+                CpiContext::new_with_signer(
+                    ctx.accounts.token_program.to_account_info(),
+                    transfer_accounts,
+                    &[&[
+                        ctx.accounts.vote_mint.key().as_ref(),
+                        &[*ctx.bumps.get("manager").unwrap()],
+                    ]],
+                ),
+                ui_amount_to_amount(1.0, ctx.accounts.payment_mint.decimals),
+            )?;
+        } else {
+            // transfer payment to the shoey vault
+            let transfer_accounts = token::Transfer {
+                from: ctx.accounts.voter_payment_ata.to_account_info(),
+                to: ctx.accounts.shoey_payment_vault.to_account_info(),
+                authority: ctx.accounts.voter.to_account_info(),
+            };
+
+            token::transfer(
+                CpiContext::new(
+                    ctx.accounts.token_program.to_account_info(),
+                    transfer_accounts,
+                ),
+                ui_amount_to_amount(1.0, ctx.accounts.payment_mint.decimals),
+            )?;
+        }
+
+        // increment total votes by 1
+        let shoey = &mut ctx.accounts.shoey;
+        shoey.total_votes += 1;
+
         Ok(())
     }
 
-    pub fn vote(ctx: Context<Vote>, shoey_name: String) -> Result<()> {
-        // accept votes
-        // if user has no votes, deposit dust for vote token and pay
-        Ok(())
+    pub fn claim(ctx: Context<Claim>, shoey_name: String) -> Result<()> {
+        // transfer everything from the shoey vault to the owner
+        let transfer_payment_accounts = token::Transfer {
+            from: ctx.accounts.shoey_payment_vault.to_account_info(),
+            to: ctx.accounts.shoey_owner_payment_ata.to_account_info(),
+            authority: ctx.accounts.shoey.to_account_info(),
+        };
+
+        token::transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                transfer_payment_accounts,
+                &[&[
+                    ctx.accounts.manager.key().as_ref(),
+                    shoey_name.as_bytes(),
+                    &[*ctx.bumps.get("shoey").unwrap()],
+                ]],
+            ),
+            ctx.accounts.shoey_payment_vault.amount,
+        )
     }
 }
 
@@ -348,8 +462,14 @@ pub struct Submit<'info> {
     #[account(init, payer = user, space = Shoey::SPACE, seeds = [manager.key().as_ref(), shoey_name.as_bytes()], bump)]
     pub shoey: Account<'info, Shoey>,
 
+    #[account(init, payer = user, associated_token::mint = payment_mint, associated_token::authority = shoey)]
+    pub shoey_payment_vault: Box<Account<'info, token::TokenAccount>>,
+
     #[account(mut)]
     pub user: Signer<'info>,
+
+    #[account(mut, associated_token::mint = payment_mint, associated_token::authority = user)]
+    pub user_payment_ata: Box<Account<'info, token::TokenAccount>>,
 
     #[account(init_if_needed, payer = user, associated_token::mint = vote_mint, associated_token::authority = user)]
     pub user_vote_ata: Box<Account<'info, token::TokenAccount>>,
@@ -380,16 +500,62 @@ pub struct Vote<'info> {
     pub payment_mint: Box<Account<'info, token::Mint>>,
 
     #[account(mut, token::mint = payment_mint, token::authority = manager)]
-    pub payment_vault: Account<'info, token::TokenAccount>,
+    pub payment_vault: Box<Account<'info, token::TokenAccount>>,
 
     #[account(mut, seeds = [manager.key().as_ref(), shoey_name.as_bytes()], bump)]
     pub shoey: Account<'info, Shoey>,
 
+    #[account(mut, associated_token::mint = payment_mint, associated_token::authority = shoey)]
+    pub shoey_payment_vault: Box<Account<'info, token::TokenAccount>>,
+
     #[account(mut)]
     pub voter: Signer<'info>,
 
+    #[account(init_if_needed, payer = voter, associated_token::mint = payment_mint, associated_token::authority = voter)]
+    pub voter_payment_ata: Box<Account<'info, token::TokenAccount>>,
+
     #[account(init_if_needed, payer = voter, associated_token::mint = vote_mint, associated_token::authority = voter)]
-    pub voter_vote_ata: Account<'info, token::TokenAccount>,
+    pub voter_vote_ata: Box<Account<'info, token::TokenAccount>>,
+
+    pub system_program: Program<'info, System>,
+
+    pub rent: Sysvar<'info, Rent>,
+
+    pub token_program: Program<'info, token::Token>,
+
+    pub associated_token_program: Program<'info, associated_token::AssociatedToken>,
+}
+
+#[derive(Accounts)]
+#[instruction(shoey_name: String)]
+pub struct Claim<'info> {
+    #[account(mut, mint::decimals = 0, mint::authority = manager)]
+    pub vote_mint: Box<Account<'info, token::Mint>>,
+
+    pub payment_mint: Box<Account<'info, token::Mint>>,
+
+    #[account(mut, associated_token::mint = payment_mint, associated_token::authority = manager)]
+    pub payment_vault: Box<Account<'info, token::TokenAccount>>,
+
+    #[account(mut, has_one = vote_mint, has_one = payment_mint, has_one = payment_vault, seeds = [vote_mint.key().as_ref()], bump)]
+    pub manager: Account<'info, Manager>,
+
+    #[account(mut)]
+    pub shoey_owner: Signer<'info>,
+
+    #[account(init_if_needed, payer = shoey_owner, associated_token::mint = payment_mint, associated_token::authority = shoey_owner)]
+    pub shoey_owner_payment_ata: Box<Account<'info, token::TokenAccount>>,
+
+    #[account(constraint = shoey_owner_edition_mint_ata.amount == 1, associated_token::mint = shoey_edition_mint, associated_token::authority = shoey_owner)]
+    pub shoey_owner_edition_mint_ata: Account<'info, token::TokenAccount>,
+
+    #[account(mut, has_one = manager, seeds = [manager.key().as_ref(), shoey_name.as_bytes()], bump)]
+    pub shoey: Account<'info, Shoey>,
+
+    #[account(mut, associated_token::mint = payment_mint, associated_token::authority = shoey)]
+    pub shoey_payment_vault: Box<Account<'info, token::TokenAccount>>,
+
+    pub shoey_edition_mint: Box<Account<'info, token::Mint>>,
 
     pub system_program: Program<'info, System>,
 
@@ -420,16 +586,14 @@ impl Manager {
 #[account]
 pub struct Shoey {
     pub name: String,
-    pub video_name: String,
-    pub votes: u64,
-    pub payment_vault: Pubkey,
-    pub shoey_mint: Pubkey,
     pub manager: Pubkey,
-    pub storage_account: Pubkey,
+    pub edition_mint: Pubkey,
+    pub payment_vault: Pubkey,
+    pub total_votes: u64,
 }
 
 impl Shoey {
-    pub const SPACE: usize = 8 + 100 + 50 + 8 + 32 + 32 + 32 + 32;
+    pub const SPACE: usize = 8 + 100 + 32 + 32 + 32 + 8;
 }
 
 #[derive(Clone)]
@@ -439,4 +603,21 @@ impl anchor_lang::Id for TokenMetadata {
     fn id() -> Pubkey {
         mpl_token_metadata::ID
     }
+}
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("Shoey Name Too Long")]
+    ShoeyNameTooLong,
+}
+
+/// Convert the UI representation of a token amount (using the decimals field defined in its mint)
+/// to the raw amount
+pub fn ui_amount_to_amount(ui_amount: f64, decimals: u8) -> u64 {
+    (ui_amount * 10_usize.pow(decimals as u32) as f64) as u64
+}
+
+/// Convert a raw amount to its UI representation (using the decimals field defined in its mint)
+pub fn amount_to_ui_amount(amount: u64, decimals: u8) -> f64 {
+    amount as f64 / 10_usize.pow(decimals as u32) as f64
 }

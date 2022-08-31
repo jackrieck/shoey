@@ -153,6 +153,17 @@ export class Client {
       this.program.programId
     );
 
+    const shoeyPaymentVault = await splToken.getAssociatedTokenAddress(
+      manager.paymentMint,
+      shoey,
+      true
+    );
+
+    const userPaymentAta = await splToken.getAssociatedTokenAddress(
+      manager.paymentMint,
+      this.provider.wallet.publicKey
+    );
+
     const [shoeyEditionMarker, _shoeyEditionMarkerBump] =
       await anchor.web3.PublicKey.findProgramAddress(
         [
@@ -177,7 +188,6 @@ export class Client {
     const submitTxSig = await this.program.methods
       .submit(shoeyName, editionNumber)
       .accounts({
-        voteMint: manager.voteMint,
         shoeyMasterEditionMint: manager.shoeyMasterEditionMint,
         shoeyMasterEditionMetadata: manager.shoeyMasterEditionMetadata,
         shoeyMasterEdition: manager.shoeyMasterEdition,
@@ -187,10 +197,13 @@ export class Client {
         shoeyEdition: shoeyEdition,
         shoeyEditionMarker: shoeyEditionMarker,
         manager: managerAddress,
+        voteMint: manager.voteMint,
         paymentMint: manager.paymentMint,
         paymentVault: manager.paymentVault,
         shoey: shoey,
+        shoeyPaymentVault: shoeyPaymentVault,
         user: this.provider.wallet.publicKey,
+        userPaymentAta: userPaymentAta,
         userVoteAta: userVoteAta,
         userShoeyEditionAta: userShoeyEditionAta,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -208,14 +221,25 @@ export class Client {
   public async vote(managerAddress: anchor.web3.PublicKey, shoeyName: string) {
     const manager = await this.fetchManager(managerAddress);
 
-    const userVoteAta = await splToken.getAssociatedTokenAddress(
+    const voterVoteAta = await splToken.getAssociatedTokenAddress(
       manager.voteMint,
+      this.provider.wallet.publicKey
+    );
+
+    const voterPaymentAta = await splToken.getAssociatedTokenAddress(
+      manager.paymentMint,
       this.provider.wallet.publicKey
     );
 
     const [shoey, _shoeyBump] = await anchor.web3.PublicKey.findProgramAddress(
       [managerAddress.toBuffer(), Buffer.from(shoeyName)],
       this.program.programId
+    );
+
+    const shoeyPaymentVault = await splToken.getAssociatedTokenAddress(
+      manager.paymentMint,
+      shoey,
+      true
     );
 
     const voteTxSig = await this.program.methods
@@ -226,8 +250,10 @@ export class Client {
         paymentMint: manager.paymentMint,
         paymentVault: manager.paymentVault,
         shoey: shoey,
+        shoeyPaymentVault: shoeyPaymentVault,
         voter: this.provider.wallet.publicKey,
-        voterVoteAta: userVoteAta,
+        voterPaymentAta: voterPaymentAta,
+        voterVoteAta: voterVoteAta,
         systemProgram: anchor.web3.SystemProgram.programId,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         tokenProgram: splToken.TOKEN_PROGRAM_ID,
@@ -235,6 +261,48 @@ export class Client {
       })
       .rpc({ skipPreflight: true });
     console.log("voteTxSig: %s", voteTxSig);
+  }
+
+  public async claim(managerAddress: anchor.web3.PublicKey, shoeyName: string) {
+    const manager = await this.fetchManager(managerAddress);
+
+    const [shoey, _shoeyBump] = await anchor.web3.PublicKey.findProgramAddress(
+      [managerAddress.toBuffer(), Buffer.from(shoeyName)],
+      this.program.programId
+    );
+
+    const shoeyData = await this.fetchShoey(shoey);
+
+    const shoeyOwnerPaymentATa = await splToken.getAssociatedTokenAddress(
+      manager.paymentMint,
+      this.provider.wallet.publicKey
+    );
+
+    const shoeyOwnerEditionMintAta = await splToken.getAssociatedTokenAddress(
+      shoeyData.editionMint,
+      this.provider.wallet.publicKey
+    );
+
+    const claimTxSig = await this.program.methods
+      .claim(shoeyName)
+      .accounts({
+        voteMint: manager.voteMint,
+        paymentMint: manager.paymentMint,
+        paymentVault: manager.paymentVault,
+        manager: managerAddress,
+        shoeyOwner: this.provider.wallet.publicKey,
+        shoeyOwnerPaymentAta: shoeyOwnerPaymentATa,
+        shoeyOwnerEditionMintAta: shoeyOwnerEditionMintAta,
+        shoey: shoey,
+        shoeyPaymentVault: shoeyData.paymentVault,
+        shoeyEditionMint: shoeyData.editionMint,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        tokenProgram: splToken.TOKEN_PROGRAM_ID,
+        associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+      })
+      .rpc({ skipPreflight: true });
+    console.log("claimTxSig: %s", claimTxSig);
   }
 
   public async fetchManager(
@@ -257,6 +325,18 @@ export class Client {
       admin: managerData.admin,
     };
   }
+
+  public async fetchShoey(shoeyAddress: anchor.web3.PublicKey): Promise<Shoey> {
+    const shoeyData = await this.program.account.shoey.fetch(shoeyAddress);
+
+    return {
+      name: shoeyData.name,
+      manager: shoeyData.manager,
+      editionMint: shoeyData.editionMint,
+      paymentVault: shoeyData.paymentVault,
+      totalVotes: shoeyData.totalVotes,
+    };
+  }
 }
 
 export interface Manager {
@@ -269,4 +349,12 @@ export interface Manager {
   paymentMint: anchor.web3.PublicKey;
   paymentVault: anchor.web3.PublicKey;
   admin: anchor.web3.PublicKey;
+}
+
+export interface Shoey {
+  name: string;
+  manager: anchor.web3.PublicKey;
+  editionMint: anchor.web3.PublicKey;
+  paymentVault: anchor.web3.PublicKey;
+  totalVotes: anchor.BN;
 }
