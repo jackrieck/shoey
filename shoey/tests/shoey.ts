@@ -49,9 +49,17 @@ describe("shoey", () => {
       "https://foo.com/video.mp4"
     );
 
+    await shoeyClient.submit(
+      managerAddress,
+      "jack2",
+      "https://foo.com/video2.mp4"
+    );
+
     await shoeyClient.vote(managerAddress, "jack");
 
     await shoeyClient.claim(managerAddress, "jack");
+
+    await shoeyClient.claim(managerAddress, "jack2");
   });
 });
 
