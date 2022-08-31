@@ -419,9 +419,6 @@ pub struct Initialize<'info> {
 #[derive(Accounts)]
 #[instruction(shoey_name: String, edition_number: u64)]
 pub struct Submit<'info> {
-    #[account(mut, mint::decimals = 0, mint::authority = manager)]
-    pub vote_mint: Box<Account<'info, token::Mint>>,
-
     #[account(mint::decimals = 0, mint::authority = shoey_master_edition)]
     pub shoey_master_edition_mint: Box<Account<'info, token::Mint>>,
 
@@ -451,8 +448,19 @@ pub struct Submit<'info> {
     #[account(mut, seeds = [b"metadata", mpl_token_metadata::ID.as_ref(), shoey_master_edition_mint.key().as_ref(), b"edition", (edition_number / EDITION_MARKER_BIT_SIZE).to_string().as_bytes()], bump, seeds::program = mpl_token_metadata::ID)]
     pub shoey_edition_marker: UncheckedAccount<'info>,
 
-    #[account(mut, seeds = [vote_mint.key().as_ref()], bump)]
+    #[account(mut,
+        has_one = vote_mint,
+        has_one = payment_mint,
+        has_one = payment_vault,
+        has_one = shoey_master_edition_mint,
+        has_one = shoey_master_edition_metadata,
+        has_one = shoey_master_edition,
+        has_one = shoey_master_edition_vault,
+        seeds = [vote_mint.key().as_ref()], bump)]
     pub manager: Account<'info, Manager>,
+
+    #[account(mut, mint::decimals = 0, mint::authority = manager)]
+    pub vote_mint: Box<Account<'info, token::Mint>>,
 
     pub payment_mint: Box<Account<'info, token::Mint>>,
 
@@ -494,7 +502,11 @@ pub struct Vote<'info> {
     #[account(mut, mint::decimals = 0, mint::authority = manager)]
     pub vote_mint: Box<Account<'info, token::Mint>>,
 
-    #[account(mut, seeds = [vote_mint.key().as_ref()], bump)]
+    #[account(mut,
+        has_one = vote_mint,
+        has_one = payment_mint,
+        has_one = payment_vault,
+        seeds = [vote_mint.key().as_ref()], bump)]
     pub manager: Account<'info, Manager>,
 
     pub payment_mint: Box<Account<'info, token::Mint>>,
@@ -502,7 +514,10 @@ pub struct Vote<'info> {
     #[account(mut, token::mint = payment_mint, token::authority = manager)]
     pub payment_vault: Box<Account<'info, token::TokenAccount>>,
 
-    #[account(mut, seeds = [manager.key().as_ref(), shoey_name.as_bytes()], bump)]
+    #[account(mut,
+        has_one = manager,
+        constraint = shoey.payment_vault == shoey_payment_vault.key(),
+        seeds = [manager.key().as_ref(), shoey_name.as_bytes()], bump)]
     pub shoey: Account<'info, Shoey>,
 
     #[account(mut, associated_token::mint = payment_mint, associated_token::authority = shoey)]
@@ -537,7 +552,11 @@ pub struct Claim<'info> {
     #[account(mut, associated_token::mint = payment_mint, associated_token::authority = manager)]
     pub payment_vault: Box<Account<'info, token::TokenAccount>>,
 
-    #[account(mut, has_one = vote_mint, has_one = payment_mint, has_one = payment_vault, seeds = [vote_mint.key().as_ref()], bump)]
+    #[account(mut,
+        has_one = vote_mint,
+        has_one = payment_mint,
+        has_one = payment_vault,
+        seeds = [vote_mint.key().as_ref()], bump)]
     pub manager: Account<'info, Manager>,
 
     #[account(mut)]
@@ -549,7 +568,11 @@ pub struct Claim<'info> {
     #[account(constraint = shoey_owner_edition_mint_ata.amount == 1, associated_token::mint = shoey_edition_mint, associated_token::authority = shoey_owner)]
     pub shoey_owner_edition_mint_ata: Account<'info, token::TokenAccount>,
 
-    #[account(mut, has_one = manager, seeds = [manager.key().as_ref(), shoey_name.as_bytes()], bump)]
+    #[account(mut,
+        has_one = manager,
+        constraint = shoey.edition_mint == shoey_edition_mint.key(),
+        constraint = shoey.payment_vault == shoey_payment_vault.key(),
+        seeds = [manager.key().as_ref(), shoey_name.as_bytes()], bump)]
     pub shoey: Account<'info, Shoey>,
 
     #[account(mut, associated_token::mint = payment_mint, associated_token::authority = shoey)]
