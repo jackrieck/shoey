@@ -178,7 +178,7 @@ pub mod shoey {
         Ok(())
     }
 
-    pub fn submit(ctx: Context<Submit>, shoey_name: String, edition_number: u64) -> Result<()> {
+    pub fn submit(ctx: Context<Submit>, shoey_name: String, edition_number: u64, video_url: String) -> Result<()> {
         // transfer upload payment to vault
         let transfer_upload_payment_accounts = token::Transfer {
             from: ctx.accounts.user_payment_ata.to_account_info(),
@@ -260,9 +260,14 @@ pub mod shoey {
             return Err(error!(ErrorCode::ShoeyNameTooLong));
         }
 
+        if video_url.len() > 500 {
+            return Err(error!(ErrorCode::ShoeyVideoUrlTooLong));
+        }
+
         // set shoey account params
         let shoey = &mut ctx.accounts.shoey;
         shoey.name = shoey_name;
+        shoey.video_url = video_url;
         shoey.manager = ctx.accounts.manager.key();
         shoey.edition_mint = ctx.accounts.shoey_edition_mint.key();
         shoey.payment_vault = ctx.accounts.shoey_payment_vault.key();
@@ -417,7 +422,7 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(shoey_name: String, edition_number: u64)]
+#[instruction(shoey_name: String, edition_number: u64, video_url: String)]
 pub struct Submit<'info> {
     #[account(mint::decimals = 0, mint::authority = shoey_master_edition)]
     pub shoey_master_edition_mint: Box<Account<'info, token::Mint>>,
@@ -609,6 +614,7 @@ impl Manager {
 #[account]
 pub struct Shoey {
     pub name: String,
+    pub video_url: String,
     pub manager: Pubkey,
     pub edition_mint: Pubkey,
     pub payment_vault: Pubkey,
@@ -616,7 +622,7 @@ pub struct Shoey {
 }
 
 impl Shoey {
-    pub const SPACE: usize = 8 + 100 + 32 + 32 + 32 + 8;
+    pub const SPACE: usize = 8 + 100 + 500 + 32 + 32 + 32 + 8;
 }
 
 #[derive(Clone)]
@@ -630,8 +636,11 @@ impl anchor_lang::Id for TokenMetadata {
 
 #[error_code]
 pub enum ErrorCode {
-    #[msg("Shoey Name Too Long")]
+    #[msg("Shoey Name must be under 100 characters")]
     ShoeyNameTooLong,
+
+    #[msg("Shoey Video Url must be under 500 characters")]
+    ShoeyVideoUrlTooLong,
 }
 
 /// Convert the UI representation of a token amount (using the decimals field defined in its mint)
